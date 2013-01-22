@@ -27,7 +27,7 @@ class am_settings():
         ''' creates new settings object to work with '''
         # application info
         self.name = 'Alias Manager'
-        self.version = '1.5'
+        self.version = '1.6'
         # default config file
         self.configfile = os.path.join(sys.path[0], "aliasmgr.conf")
         # empty setting dictionary

@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 '''
     Alias Manager 
-    ...manages bash alias file
+    ...manage bash alias files through a GUI
+    	view, edit, add, delete, save, load alias scripts
+    	integrate one or more scripts into bashrc
+    	
     
     Created on Dec 28, 2012
 
@@ -1732,7 +1735,7 @@ def integration_choice():
         settings.setsave("integration", "false")
         return False
           
-# Start.of.script ----------------------------------
+# Start.of.script -------------------------------------------------------------
 if __name__ == '__main__':
     dlg = dlg()
     if settings.get("dlglastpath") != "":
