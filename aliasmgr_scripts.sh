@@ -4,10 +4,11 @@
 # called on BASH startup.
 # Alias Manager will over-write any changes
 # you make to this file.
-Alias Manager loading scripts...if [ -f /home/cj/bash.chmod.test.sh ]; then
-    source /home/cj/bash.chmod.test.sh
-    echo '    Loaded /home/cj/bash.chmod.test.sh'
+echo 'Alias Manager loading scripts...'
+if [ -f /etc/bash.alias.sh ]; then
+    source /etc/bash.alias.sh
+    echo '    Loaded /etc/bash.alias.sh'
 else
-    echo 'Alias Manager file not found: /home/cj/bash.chmod.test.sh'
+    echo 'Alias Manager file not found: /etc/bash.alias.sh'
 fi
 echo ' '

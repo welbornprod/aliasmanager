@@ -23,7 +23,7 @@ bdebug = False
 sinstall_dir = '/usr/share/aliasmgr'
 
 def main(largs):
-    global bdebug
+    global bdebug, sinstall_dir
     # root check
     if os.environ.has_key("USER"):
         suser = os.environ["USER"]
@@ -42,6 +42,8 @@ def main(largs):
             exit(0)
         if '-d' in sarg or '--d' in sarg:
             bdebug = True
+        if os.path.isdir(sinstall_dir):
+            sinstall_dir = sarg
             
     do_install()
             
@@ -54,7 +56,8 @@ def do_install():
     if bdebug:
         print("[Debug Mode - Dry Run]")
     lst_exts = ['.py', '.xpm', '.glade',
-                'install', 'uninstall', '.desktop']
+                'install', 'uninstall', '.desktop',
+                'examples.sh']
     
     if not os.path.isdir(sinstall_dir):
         print("Creating Alias Manager directory... [" + sinstall_dir + "]")

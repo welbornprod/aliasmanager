@@ -336,7 +336,7 @@ class am_integrator():
                 fwrite.write(self.headerscript)
                 lst_files = self.helper_getfiles()
                 if len(lst_files) > 0:
-                    fwrite.write("Alias Manager loading scripts...")
+                    fwrite.write("echo 'Alias Manager loading scripts...'\n")
                     for sfile in self.helper_getfiles():
                         fwrite.write("if [ -f " + sfile + " ]; then\n")
                         fwrite.write("    source " + sfile + '\n')
