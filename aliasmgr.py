@@ -855,17 +855,32 @@ class winMain():
             self.btnSave_clicked_cb(widget)
             
     def btnEdit_clicked_cb(self, widget):
-        scmd = "gedit " + settings.get("aliasfile")
-        try:
-            subprocess.Popen(scmd.split(" "))
-            self.stat_settext("Opened " + scmd + "...")
-            self.printlog("Opened " + scmd + "...")
-        except Exception as ex:
-            self.stat_settext("Unable to open: " + scmd)
-            self.printlog("Unable to open: " + scmd)
-            self.printlog("Error: " + str(ex))
-            dlg.msgbox("Unable to open: " + scmd + "\n\n" + \
-                        "<b>Error:</b>\n" + str(ex))
+        sexe = settings.get("editor")
+        if sexe == "":
+            dlg.msgbox("No editor has been set, please select a valid text/" + \
+                       "shell script editor.")
+            sexe = self.select_editor()
+            
+        if not os.path.isfile(sexe):
+            self.printlog("btnEdit: Invalid Editor!: " + sexe)
+            dlg.msgbox("Invalid editor, file not found: " + sexe + '\n' + \
+                       "Please select a valid editor.")
+            sexe = self.select_editor()   
+        
+        if os.path.isfile(sexe):    
+            scmd = sexe + " " + settings.get("aliasfile")
+            try:
+                subprocess.Popen(scmd.split(" "))
+                self.stat_settext("Opened " + scmd + "...")
+                self.printlog("Opened " + scmd + "...")
+            except Exception as ex:
+                self.stat_settext("Unable to open: " + scmd)
+                self.printlog("Unable to open: " + scmd)
+                self.printlog("Error: " + str(ex))
+                dlg.msgbox("Unable to open: " + scmd + "\n\n" + \
+                            "<b>Error:</b>\n" + str(ex))
+
+        
 # Local.Functions --------------------------------------------------
     def stat_settext(self, s_text, shtmlcolor = '#909090'):
         # Set Status text using color (saves typing, custom color available)
@@ -1225,9 +1240,28 @@ class winMain():
             self.flogfile = open(os.path.join(sys.path[0], "aliasmgr.log"), 'w')
             
         self.flogfile.write(sstring + '\n')
+
+    def select_editor(self):
+        """ Select a text editor, return its filepath. 
+            Returns "" on failure.
+        """
+        dlg_editor = dialogs()
+        dlg_editor.filter = [["All Files", "*"]]
+        if os.path.isdir('/usr/bin'):
+            dlg_editor.lastpath = '/usr/bin'
+        sexe = dlg_editor.dialog("Select an editor...")           
+        del dlg_editor
+        
+        if os.path.isfile(sexe):
+            settings.setsave("editor", sexe)
+        else:
+            if sexe != "":
+                dlg.msgbox("Editor doesn't exist!", gtk.MESSAGE_ERROR)
+            sexe = ""
+        return sexe                   
         
 # Dialog/Msgbox --------------------------------------------------------       
-class dlg():
+class dialogs():
     """ Dialog boxes and Messageboxes made easier/portable 
         ** for dialogs you might want to set the filter after initializing
             like:
@@ -1794,7 +1828,7 @@ def chmod_file(sfilename):
           
 # Start.of.script -------------------------------------------------------------
 if __name__ == '__main__':
-    dlg = dlg()
+    dlg = dialogs()
     if settings.get("dlglastpath") != "":
         dlg.lastpath = settings.get("dlglastpath")
     main()
