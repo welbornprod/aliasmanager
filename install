@@ -1,0 +1,203 @@
+#!/usr/bin/env python
+'''
+    Alias Manager - Installer
+    ...installs Alias Manager
+    
+Created on Jan 21, 2013
+
+@author: cj
+'''
+from __future__ import print_function
+import sys
+import os
+import os.path
+try:
+    import aliasmgr_settings
+except:
+    print("Alias Manager Import Error: missing local imports!")
+    print("Can't find aliasmgr_settings.py or aliasmgr_integrator.py")
+    exit(1)
+    
+bdebug = False
+
+sinstall_dir = '/usr/share/aliasmgr'
+
+def main(largs):
+    global bdebug
+    # root check
+    if os.environ.has_key("USER"):
+        suser = os.environ["USER"]
+        if suser != 'root':
+            print("Please run this installer as root.")
+            print("You might try 'sudo ./install'")
+            exit(1)
+    for sarg in largs:
+        if "-h" in sarg or "--h" in sarg:
+            print("Alias Manager Installer Help:")
+            print("    This installer needs root, you might try running:")
+            print("    sudo ./install")
+            print("\n    To uninstall Alias Manager please run the uninstall")
+            print("    script. Like this:")
+            print("    sudo ./uninstall\n")
+            exit(0)
+        if '-d' in sarg or '--d' in sarg:
+            bdebug = True
+            
+    do_install()
+            
+    
+
+def do_install():
+    lst_status = []
+    settings = aliasmgr_settings.am_settings()
+    print("Installing Alias Manager v." + settings.version + "...")
+    if bdebug:
+        print("[Debug Mode - Dry Run]")
+    lst_exts = ['.py', '.xpm', '.glade',
+                'install', 'uninstall', '.desktop']
+    
+    if not os.path.isdir(sinstall_dir):
+        print("Creating Alias Manager directory... [" + sinstall_dir + "]")
+        if not bdebug: 
+            lst_status.append(make_dir(sinstall_dir))
+    
+    print("Copying files...")    
+    lst_files = os.listdir(sys.path[0])
+    for sfile in lst_files:
+        for sext in lst_exts:
+            if sfile.endswith(sext):
+                sfilepath = os.path.join(sys.path[0], sfile)
+                print("    " + sfile + (' ' * (25 - len(sfile))) + \
+                      ' > ' + sinstall_dir)
+                lst_status.append(copy_file(sfilepath, sinstall_dir))
+    
+    print("Making read/write and executables...")
+    try:
+        if not bdebug:
+            os.system('chmod a+rw ' + sinstall_dir)
+            print("    +rw " + sinstall_dir)
+        lst_installed = os.listdir(sinstall_dir)
+    except:
+        # for debug purposes
+        lst_installed = []
+    for sfile in lst_installed:
+        sfilepath = os.path.join(sinstall_dir, sfile)
+        if (sfile.endswith('.pyc') or
+            sfile.endswith('.py') or
+            sfile.endswith('.sh')):
+            print("    +x  " + sfile)
+            lst_status.append(make_exec(sfilepath))
+        print("    +rw " +sfile)
+        lst_status.append(make_rw(sfilepath))
+    
+    print("Creating menu item...")
+    lst_status.append(make_menuitem())
+    
+    print("Creating symlink...")
+    lst_status.append(make_symlink())
+    
+    if all(lst_status):
+        print('\nAlias Manager was installed.')
+        exit(0)
+    else:
+        print('\nAlias Manager encountered errors during install!')
+        exit(1)
+
+
+
+def make_symlink():
+    smainfile = os.path.join(sinstall_dir, 'aliasmgr.py')
+    if os.path.isfile(smainfile):
+        try:
+            if not bdebug:
+                os.system('ln -s ' + smainfile + ' ' + '/usr/bin/aliasmgr')
+                print('    /usr/bin/aliasmgr')
+        except:
+            print("Unable to create symlink!: /usr/bin/aliasmgr")
+            return False
+    return True
+                
+def make_menuitem():
+    print("    copying icon file > /usr/share/pixmaps/")
+    sicon_file = os.path.join(sinstall_dir, 'alias-manager.xpm')
+    if not bdebug:
+        make_dir('/usr/share/pixmaps')
+    if os.path.isfile(sicon_file) and os.path.isdir('/usr/share/pixmaps'):
+        if not bdebug:
+            copy_file(sicon_file, '/usr/share/pixmaps/alias-manager.xpm')
+    else:
+        print("Unable to copy icon file! Make menu item aborted!")
+        return False
+    
+    sdesktop_file = os.path.join(sinstall_dir, 'aliasmanager.desktop')
+
+    sdestdir = '/usr/share/applications'
+    print("    copying desktop file > " + sdestdir)
+    if not bdebug:
+        make_dir(sdestdir)
+    if os.path.isfile(sdesktop_file) and os.path.isdir(sdestdir):
+        sdestpath = os.path.join(sdestdir, 'aliasmanager.desktop')
+        if not bdebug:
+            copy_file(sdesktop_file, sdestpath)
+    else:
+        print("Unable to copy desktop file! Make menu item aborted!")
+        return False
+    return True
+    
+def make_exec(sfile):
+    """ makes a file executable """
+    if not bdebug:
+        try:
+            os.system('chmod a+x ' + sfile)
+        except:
+            print("Unable to chmod +x file!: " + sfile)
+            return False
+    return True
+
+def make_rw(sfile):
+    """ makes a file read/write """
+    if not bdebug:
+        try:
+            os.system('chmod a+rw ' + sfile)
+        except:
+            print("Unable to chmod +rw file!: " + sfile)
+            return False
+    return True
+                       
+def copy_file(ssrc, sdest):
+    """ copies file to install dir """
+    if not bdebug:
+        try:
+            os.system('cp ' + ssrc + ' ' + sdest)
+        except:
+            print("Unable to copy file!: " + ssrc)
+            return False
+        
+    return True
+    
+def make_dir(sdir):
+    """ makes dir, starting at root dir and makes sure all sub-dirs exist
+        or are created """
+    if not bdebug:
+        spath = ''
+        for sbuilddir in sdir.split('/'):
+            if sbuilddir != '':
+                spath += '/' + sbuilddir
+                if not os.path.isdir(spath):
+                    try:
+                        os.mkdir(spath)
+                        print('        made dir ' + spath)
+                    except OSError:
+                        print("Unable to create directory: " + spath)
+                        return False
+    return True
+        
+        
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        largs = []
+    else:
+        largs = sys.argv[1:]
+    main(largs)
+
+

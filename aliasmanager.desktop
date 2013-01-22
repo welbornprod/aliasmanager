@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Alias Manager
+GenericName=Manage Bash Aliases
+Comment=by Christopher Welborn
+Exec=/usr/bin/aliasmgr
+Categories=System;
+Icon=/usr/share/pixmaps/alias-manager.xpm
+StartupNotify=false
+Terminal=false
+Type=Application

@@ -60,12 +60,13 @@ class cmdline():
     """ alias manager command line tools """
     def __init__(self, largs):
         self.main(largs)
-        self.aliasfile = settings.get("aliasfile")
       
     def main(self, largs):
         """ runs command line style, accepts args """
         # Arg 
         if len(largs) > 0:
+            # if filename was passed, this will be replaced with filename
+            self.aliasfile = settings.get("aliasfile")
             self.arg_handler(largs)
         else:
             print("No arguments supplied to aliasmgr.cmdline!")
@@ -75,7 +76,10 @@ class cmdline():
         """ receives list of args, handles accordingly """
         # Asking for help?
         for sarg in largs:
-            if "h" in sarg:
+            if (os.path.isfile(sarg) or
+                os.path.isfile(os.path.join(sys.path[0], sarg))):
+                self.aliasfile = sarg
+            elif "h" in sarg:
                 self.printusage()
                 self.printhelp()
                 exit(0)
@@ -85,7 +89,6 @@ class cmdline():
                 exit(0)
             elif "e" in sarg:
                 self.printexports()
-                print("Finished.")
                 exit(0)
             elif (("p" in sarg)):
                 # print aliases (sarg will tell us normal/short/comment/or full style)        
@@ -101,30 +104,34 @@ class cmdline():
         print("")
     
     def printusage(self):
-        print("Usage: aliasmgr [ p[x|s|c][f|a] | h | v | e ]\n")
+        print("Usage: aliasmgr [ p | h | v | e ] [file]\n")
     
     def printhelp(self):
-        print(settings.name + " Help:\n")
-        print("              h : Show this help message")
-        print("              v : Print version")
-        print("              e : Print exported names only")
-        print(" p[x|s|c|][f|a] : Print current aliases/functions")
-        print("                 'px' will print entire functions.")
-        print("                 'ps' only shows names")
-        print("                 'pc' shows names : comments")
-        print("                 with: ")
-        print("                      'a' shows aliases only")
-        print("                      'f' shows functions only")
-        print("\nExample:\n    'aliasmgr pcf' shows names and comments for functions only")
-        
-        if settings.get("aliasfile") == "":
+        aliasfile = settings.get("aliasfile")
+        if aliasfile == "":
             aliasfile = "(Not selected yet)"
-        print("Current alias file:\n    " + aliasfile)
+            
+        print("  Current file:    " + aliasfile + '\n')
+        print("      Commands:")
+        print("                   h : Show this help message")
+        print("                   v : Print version")
+        print("                   e : Print exported names only")
+        print("      p[x|s|c|][f|a] : Print current aliases/functions\n")
+        print('    Formatting:')
+        print("                   x : will print entire functions.")
+        print("                   s : only shows names")
+        print("                   c : shows names : comments\n")
+        print("         Types: ")
+        print("                   a : shows aliases only")
+        print("                   f : shows functions only\n")
+        print("       Example:\n" + \
+              "        'aliasmgr pcf' shows names and comments for functions only")
+        
+
      
     def printaliases(self, sarg):
-        # Displaying current alias file
-        #print("Displaying current alias file:")
-        ##  DISPLAY ALIASES / FUNCTIONS
+        """ Print aliases in current file """
+        
         lst_items = fixexports(readfile())
         if lst_items:
             for itm in lst_items:
@@ -145,7 +152,9 @@ class cmdline():
                     maxcmdlength = 20
                     thiscmdlength = len(itm.name)
     
-                    sfinalname = (itm.name + (" " * (maxcmdlength - thiscmdlength)) + ": " + scomment)
+                    sfinalname = (itm.name + \
+								(" " * (maxcmdlength - thiscmdlength)) + \
+								": " + scomment)
                 else:
                     # printing normal (p), or full version (px)
                     sfinalname = (itm.name + ":")
@@ -189,9 +198,9 @@ class cmdline():
         """ Prints exports only """
         lst_exports = readexports()
         if lst_exports:
-            print("Found " + str(len(lst_exports)) + " exports:")
+            #print("Found " + str(len(lst_exports)) + " exports:")
             for itm in lst_exports:
-                print("    " + itm)
+                print(itm)
         else:
             print("Unable to load exports!")
 
@@ -529,6 +538,10 @@ class winMain():
                     integrator.bashrc + '</i>'
             sheader = sfile + sbashrc
             if integrator.helper_addfile(saliasfile):
+                # go ahead and check file mode, chmod +x if needed.
+                # (not everyone remembers they have to do this,
+                #  they will want 'Integrate' to 'just work')
+                chmod_file(saliasfile)
                 dlg.msgbox(sheader + '\n\nFile was integrated.')
             else:
                 dlg.msgbox(sheader + '\n\nFailed to integrate file into bashrc!')
@@ -569,18 +582,20 @@ class winMain():
                            integrator.home + ' \n' + \
                            "or /etc/.", dlg.error)
             
+        
         if integrator.helper_checkfile(settings.get("aliasfile")):
-            sstatus = "<b><u>Integrated with:</u></b>\n"
+            sstatus = "File is integrated."
         else:
-            sstatus = "<b><u>NOT Integrated with:</u></b>\n"
+            sstatus = "File is NOT integrated."
             
         saliasfile = '<i>' + settings.get("aliasfile") + '</i>\n\n'
-        sbashrc = '<i>' + integrator.bashrc + '</i>'
+        sbashrc = '<i>' + integrator.bashrc + '</i>\n\n'
             
         smsg = "<b><u>File:</u></b>\n" + \
                 saliasfile + \
-                sstatus + \
-                sbashrc
+                "<b><u>Bashrc:</u></b>\n" + \
+                sbashrc + \
+                sstatus
         dlg.msgbox(smsg, dlg.info)
     
     def mnuListIntegrated_select_cb(self, widget, data=None):
@@ -1079,35 +1094,38 @@ class winMain():
             #self.printlog("Temporary file written: " + aliasfiletmp)
             btmp = True
         
-        if btmp:
-            # chmod for tmp file
-            os.system("chmod a+rwx " + aliasfiletmp)
-            # Copy to destination
-            
-            try:
-                # Backup if it doesn't exist
-                if (os.path.isfile(sfilename) and 
-                    (not os.path.isfile(sfilename + "~"))):
-                    os.system("cp " + sfilename + " " + sfilename + "~")
-                    self.printlog("Backup created.")
-                    
-                os.system("cp " + aliasfiletmp + " " + sfilename)
-            except Exception as ex:
-                self.stat_settext("Unable to copy to destination: " + \
-                                  filename_safe(sfilename))
-                self.printlog("Unable to copy to destination!")
-                self.printlog("Error: " + str(ex))
-                return False
-                dlg.msgbox("Unable to copy to destination: " + \
-                            filename_safe(sfilename), dlg.error)
-            self.printlog("Temp file copied to destination: " + sfilename)
-            
-        else:
-            
+        if not btmp:
             self.stat_text("Unable to write temp file: " + \
                            filename_safe(aliasfiletmp))
             self.printlog("Unable to write temp file: " + \
                           aliasfiletmp)
+            # Temp file didn't write, there is no reason to continue.
+            return False
+             
+        # chmod for tmp file (probably not needed, it doesn't do anything)
+        #os.system("chmod a+rwx " + aliasfiletmp)
+        
+        try:
+            # Backup destination file if it doesn't exist
+            if (os.path.isfile(sfilename) and 
+                (not os.path.isfile(sfilename + "~"))):
+                os.system("cp " + sfilename + " " + sfilename + "~")
+                self.printlog("Backup created.")
+            # Copy temp file to destination,,,    
+            os.system("cp " + aliasfiletmp + " " + sfilename)
+        except Exception as ex:
+            self.stat_settext("Unable to copy to destination: " + \
+                              filename_safe(sfilename))
+            self.printlog("Unable to copy to destination!")
+            self.printlog("Error: " + str(ex))
+            return False
+            dlg.msgbox("Unable to copy to destination: " + \
+                        filename_safe(sfilename), dlg.error)
+        self.printlog("Temp file copied to destination: " + sfilename)
+        
+        # chmod +x if needed
+        schmod_result = chmod_file(sfilename)
+        self.printlog(schmod_result)
         
         # Success
         return True
@@ -1734,6 +1752,45 @@ def integration_choice():
     else:
         settings.setsave("integration", "false")
         return False
+    
+def chmod_file(sfilename):
+    """ makes file executable, 
+        if gksudo/kdesudo is needed, the user is asked before entering a pw
+    """
+    # chmod to destination file
+    stat_exec = os.access(sfilename, os.X_OK)
+    #print("chmod_file executable: " + str(stat_res))
+    if stat_exec:
+        return "chmod_file: already executable."
+    else:
+        st_owner = os.stat(sfilename).st_uid
+        # needs root, user not root
+        if st_owner == 0 and os.getuid() != 0:
+            do_chmod = dlg.msgbox_yesno("For this script to work it needs " + \
+                                        "to be executable, and you will need " + \
+                                        "to enter root's password.\n" + \
+                                        "Would you like to make this script executable?")
+            if do_chmod == gtk.RESPONSE_YES:
+                # use elevation command to chmod
+                selevcmd = ''
+                if os.path.isfile('/usr/bin/kdesudo'):
+                    selevcmd = 'kdesudo'
+                elif os.path.isfile('/usr/bin/gksudo'):
+                    selevcmd = 'gksudo'
+                else:
+                    return ("No elevcmd found to use!, can't chmod!")
+                
+                try:    
+                    os.system(selevcmd + ' chmod a+x ' + sfilename)
+                    return (selevcmd + ' chmod +x ' + sfilename)
+                except:
+                    return ("Unable to use elevcmd to chmod!")
+            else:
+                return ("chmod declined.")
+        else:
+            # doesn't need root, user is or isnt root.
+            os.system('chmod a+x ' + sfilename)
+            return ('chmod +x ' + sfilename)
           
 # Start.of.script -------------------------------------------------------------
 if __name__ == '__main__':

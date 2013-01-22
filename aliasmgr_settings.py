@@ -75,7 +75,7 @@ class am_settings():
     
         try:
             self.settings[soption] = svalue
-            print("settings.set(): " + soption + "=" + self.settings[soption])
+            #print("settings.set(): " + soption + "=" + self.settings[soption])
             return True
         except:
             return False

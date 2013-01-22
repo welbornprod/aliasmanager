@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+'''
+    Alias Manager - UnInstaller
+    ...un-installs everything 'install' created...
+Created on Jan 21, 2013
+
+@author: cj
+'''
+from __future__ import print_function
+import sys
+import os
+import os.path
+    
+bdebug = False
+
+sinstall_dir = '/usr/share/aliasmgr'
+
+def main(largs):
+    global bdebug
+    # root check
+    if os.environ.has_key("USER"):
+        suser = os.environ["USER"]
+        if suser != 'root':
+            print("Please run this uninstaller as root.")
+            print("You might try 'sudo ./uninstall'")
+            exit(1)
+    for sarg in largs:
+        if "-h" in sarg or "--h" in sarg:
+            print("Alias Manager UnInstaller Help:")
+            print("    This uninstaller needs root, you might try running:")
+            print("    sudo ./uninstall")
+            print("\n    To reinstall Alias Manager please run the install")
+            print("    script. Like this:")
+            print("    sudo ./install\n")
+            exit(0)
+        if '-d' in sarg or '--d' in sarg:
+            bdebug = True
+            
+    do_uninstall()
+            
+    
+
+def do_uninstall():
+    print("UnInstalling Alias Manager...")
+    if os.path.isdir(sinstall_dir):
+        print("Removing Alias Manager directory...")
+        if not bdebug:
+            try:
+                os.system('rm -r ' + sinstall_dir)
+            except:
+                print("Unable to remove Alias Manager directory!: /usr/share/aliasmgr")
+    else:
+        print("Alias Manager directory already removed!")
+    
+    if os.path.islink('/usr/bin/aliasmgr'):
+        print("Removing Alias Manager symlink [/usr/bin/aliasmgr]")
+        if not bdebug:
+            try:
+                os.system('rm /usr/bin/aliasmgr')
+            except:
+                print("Unable to remove Alias Manager symlink!: /usr/bin/aliasmgr")
+    else:
+        print("Alias Manager symlink already removed!")
+    
+    sdesktop_file = ""
+    if os.path.isfile('/usr/share/applications/aliasmanager.desktop'):
+        sdesktop_file = '/usr/share/applications/aliasmanager.desktop'
+    else:
+        if os.environ.has_key("HOME"):
+            sdesktop_file = os.path.join(os.environ['HOME'], '/.local/share/applications/aliasmanager.desktop')
+    if os.path.isfile(sdesktop_file):
+        print("Removing Alias Manager menu item [" + sdesktop_file + "]")
+        if not bdebug:
+            try:
+                os.system('rm ' + sdesktop_file)
+            except:
+                print("Unable to remove Alias Manager menu item!: " + sdesktop_file)
+    else:
+        print("Alias Manager menu item already removed!")
+    
+    if os.path.isfile('/usr/share/pixmaps/alias-manager.xpm'):
+        print("Removing Alias Manager icon [/usr/share/pixmaps/alias-manager.xpm]")
+        if not bdebug:
+            try:
+                os.system('rm /usr/share/pixmaps/alias-manager.xpm')
+            except:
+                print("Unable to remove Alias Manager icon!: /usr/share/pixmaps/alias-manager.xpm")
+    else:
+        print("Alias Manager icon already removed!")
+    
+    print("\nFinished removing Alias Manager.")
+        
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        largs = []
+    else:
+        largs = sys.argv[1:]
+    main(largs)

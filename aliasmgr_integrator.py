@@ -35,8 +35,8 @@ class am_integrator():
                             "# one or many alias/function scripts to be\n" + \
                             "# called on BASH startup.\n" + \
                             "# Alias Manager will over-write any changes\n" + \
-                            "# you make to this file.\n" + \
-                            "echo 'Alias Manager - Loading scripts...'\n"
+                            "# you make to this file.\n"
+                            
         # load user info  
         self.get_userinfo()
     
@@ -107,7 +107,7 @@ class am_integrator():
                 printx("is_integrated: unable to find bashrc file!")
                 return False
             
-        printx("testing " + self.bashrc + " for " + sfilename + "...")
+        #printx("testing " + self.bashrc + " for " + sfilename + "...")
         if sfilename in self.get_integrated_files():
             return True
         else:
@@ -136,7 +136,7 @@ class am_integrator():
             broot = False
             
         with open(sfile, 'a') as fwrite:
-            fwrite.write("\nif [ -f " + self.helperscript + " ]; then . " + \
+            fwrite.write("\nif [ -f " + self.helperscript + " ]; then source " + \
                          self.helperscript + "; fi\n")
             fwrite.close()
             
@@ -176,7 +176,7 @@ class am_integrator():
             broot = False
         
         # Alias Manager Integration Line...
-        stagline = "if [ -f " + self.helperscript + " ]; then . " + \
+        stagline = "if [ -f " + self.helperscript + " ]; then source " + \
                     self.helperscript + "; fi"
         # read lines from bashrc
         with open(sfile, 'r') as fread:
@@ -220,10 +220,14 @@ class am_integrator():
                     # found script integration, get filename
                     lst_integrated.append(strim[strim.index(".") + 1:])
                 elif ((strim.startswith("if[")) and 
-                       ("./" in strim) and 
+                       (";then./" in strim or ";thensource/" in strim) and 
                        (strim.endswith(";fi"))):
                     # possible single-line if statement integration
-                    srough = strim[strim.index("./") + 1:]
+                    if "./" in strim:
+                        smarker = "./"
+                    elif "source/" in strim:
+                        smarker = "source/"
+                    srough = strim[strim.index(smarker) + (len(smarker) -1):]
                     lst_integrated.append(srough[:srough.index(';')])    
             # success
             return lst_integrated
@@ -279,14 +283,15 @@ class am_integrator():
         """
         if sfilename == "":
             return False
-        
+      
         if self.helper_createfile():
             with open(self.helperfiles, 'a') as fwrite:
                 fwrite.write('\n' + sfilename + '\n')
                 fwrite.flush()
                 fwrite.close()
                 return self.helper_generate_script()
-
+        
+        
         # Failure
         return False
     
@@ -329,17 +334,20 @@ class am_integrator():
         try:
             with open(self.helperscript, 'w') as fwrite:
                 fwrite.write(self.headerscript)
-                for sfile in self.helper_getfiles():
-                    fwrite.write("if [ -f " + sfile + " ]; then\n")
-                    fwrite.write("    . " + sfile + '\n')
-                    fwrite.write("    echo 'Loaded " + sfile + "'\n")
-                    fwrite.write("else\n")
-                    fwrite.write("    echo 'Alias Manager file not found: " + \
-                                 sfile + "'\n")
-                    fwrite.write("fi\n")
-                fwrite.write("echo ' '\n")    
-                fwrite.write("echo 'Alias Manager script files loaded.'\n")
-                fwrite.write("echo ' '\n")
+                lst_files = self.helper_getfiles()
+                if len(lst_files) > 0:
+                    fwrite.write("Alias Manager loading scripts...")
+                    for sfile in self.helper_getfiles():
+                        fwrite.write("if [ -f " + sfile + " ]; then\n")
+                        fwrite.write("    source " + sfile + '\n')
+                        fwrite.write("    echo '    Loaded " + sfile + "'\n")
+                        fwrite.write("else\n")
+                        fwrite.write("    echo 'Alias Manager file not found: " + \
+                                     sfile + "'\n")
+                        fwrite.write("fi\n")
+                        fwrite.write("echo ' '\n")    
+                #fwrite.write("echo 'Alias Manager script files loaded.'\n")
+                #fwrite.write("echo ' '\n")
                 fwrite.close()
             # chmod to script
             os.system("chmod a+x " + self.helperscript)
