@@ -231,6 +231,7 @@ class winMain():
         self.mnuSelFile = self.builder.get_object("mnuSelFile")
         self.mnuSaveFile = self.builder.get_object("mnuSaveFile")
         self.mnuSaveFileAs = self.builder.get_object("mnuSaveFileAs")
+        self.mnuAbout = self.builder.get_object("mnuAbout")
         self.mnuClose = self.builder.get_object("mnuClose")
         
         self.mnuBash = self.builder.get_object("mnuBash")
@@ -241,6 +242,7 @@ class winMain():
         self.mnuListIntegrated = self.builder.get_object("mnuListIntegrated")
         
         self.btnAdd = self.builder.get_object("btnAdd")
+        self.btnRename = self.builder.get_object("btnRename")
         self.btnRemove = self.builder.get_object("btnRemove")
         self.btnReload = self.builder.get_object("btnReload")
         self.btnSave = self.builder.get_object("btnSave")
@@ -259,7 +261,7 @@ class winMain():
         self.txtComment = self.builder.get_object("txtComment")
         self.scrollAliases = self.builder.get_object("scrollAliases")
         self.scrollCommand = self.builder.get_object("scrollCommand")
-        
+        self.entrySearch = self.builder.get_object("entrySearch")
 
         # Setup treeAliases
         # Create 'Text' Column (MenuEntries) for tree
@@ -315,12 +317,14 @@ class winMain():
         # Load data
         self.load_aliases()
         self.stat_settext("Alias file loaded.")
+        self.treeAliases.set_search_column(0)
         # Load settings
         self.chkAutosave.set_active("true" in settings.get("autosave"))
         self.mnuIntegration.set_active("true" in settings.get("integration"))
         # Show window
         self.winMain.show()
-     
+        
+        
     def winMain_destroy_cb(self, widget, data=None):
         if dlg.lastpath != None:
             settings.setsave("dlglastpath", dlg.lastpath)
@@ -514,6 +518,15 @@ class winMain():
         gtk.main_quit()
         exit(0)
         
+    def mnuAbout_select_cb(self, widget, data=None):
+        self.stat_settext("Alias Manager version and info...")
+    def mnuAbout_button_release_event_cb(self, widget, signal_id, data=None):
+        smsg = '<i>version ' + settings.version + '</i>\n\n' + \
+                '<u>author:</u> Christopher Welborn\n' + \
+                '<u>email:</u> <a href="mailto:cj@welbornproductions.net">' + \
+                'cj@welbornproductions.net</a>'
+        dlg.msgbox(smsg, gtk.MESSAGE_INFO)
+        
     def mnuBash_deselect_cb(self, widget, data = None):
         self.stat_settext("")
         
@@ -680,6 +693,8 @@ class winMain():
                        
     def btnAdd_activate_cb(self, widget):
         self.btnAdd_clicked_cb(widget)
+    def btnRename_activate_cb(self, widget):
+        self.btnRename_clicked_cb(widget)
     def btnRemove_activate_cb(self, widget):
         self.btnRemove_clicked_cb(widget)
     def btnSave_activate_cb(self, widget):
@@ -695,28 +710,11 @@ class winMain():
         
     # Buttons.Click ----------------------------------------------      
     def btnAdd_clicked_cb(self, widget):
-        self.printlog("btnAdd: widget=" + str(widget.name))
-
         sname = input_text(message="Enter a name for this command:")
         
-        # No text entered?
-        if sname == None:
+        # No text, Item already exists, bad name?
+        if self.item_badname(sname):
             return False
-        if sname.replace(' ', '') == "":
-            return False
-        # Item already exists/bad name?
-        for itm in self.lst_data:
-           
-            if sname == itm.name:
-                self.stat_settext("Item already exists!: " + sname)
-                self.printlog("Item already exists!: " + sname)
-                dlg.msgbox("Item already exists!: " + sname, dlg.error)
-                return False
-            if sname == "$_ITEM_$":
-                self.stat_settext("Bad name for item: $_ITEM_$")
-                self.printlog("Bad name for item: $_ITEM_$")
-                dlg.msgbox("Sorry, you can't use this name. I'm using it.")
-                return False
             
         # Add name to list with empty data
         cmd = command()
@@ -725,14 +723,45 @@ class winMain():
         cmd.comment = ""
         cmd.exported = "New"
         self.lst_data.append(cmd)
-        self.txtComment_clear()
-        self.txtCommand_clear()
-        
+
         # Reload aliases from lst_data
         self.load_aliases(False)
         self.stat_settext("Item added: " + sname)
         self.printlog("Item added: " + sname)
+        # Select new item
+        self.alias_select_byname(cmd.name)
+    
+    def btnRename_clicked_cb(self, widget):
+        if self.selindex < 0:
+            dlg.msgbox("You must select an alias to rename.", gtk.MESSAGE_ERROR)
+            return False
+
+        sname = input_text(message="Enter a new name for this command:",
+                           default=self.selname)
+
+        # No text, Item already exists, bad name?
+        if self.item_badname(sname):
+            return False
+            
+        # Retrieve old command, alter its name.
+        self.lst_data[self.selindex].name = sname
+        sexported = self.selitem.exported
+          
         
+        # Reload aliases from lst_data
+        self.load_aliases(False)
+       
+        self.stat_settext("Item renamed: " + sname)
+        self.printlog("Item renamed: " + sname)
+        # Select new item
+        self.alias_select_byname(sname)
+        
+        # Autosave preserves exported status
+        if self.chkAutosave.get_active():
+            if self.selitem.exported != sexported:
+                self.lst_data[self.selindex].exported = sexported
+                self.btnSaveCmd_clicked_cb(widget)
+                
     def btnReload_clicked_cb(self, widget):
         self.load_aliases(True)
         aliasfile = settings.get("aliasfile")
@@ -880,6 +909,11 @@ class winMain():
                 dlg.msgbox("Unable to open: " + scmd + "\n\n" + \
                             "<b>Error:</b>\n" + str(ex))
 
+    def entrySearch_changed_cb(self, user_data=None):
+        """ auto-selects items based on search text """
+        if self.entrySearch.get_text_length() > 0:
+            stext = self.entrySearch.get_text()
+            self.alias_select_bypart(stext)
         
 # Local.Functions --------------------------------------------------
     def stat_settext(self, s_text, shtmlcolor = '#909090'):
@@ -993,6 +1027,139 @@ class winMain():
         #  Failure
         return False
     
+    def tree_select(self, iindex, selObject = None):
+        """ Selects a row in treeView """
+        if selObject is None:
+            selObject = self.treeSel
+        # Select an item (based on index) in the treeNames.treeSelection:
+        selObject.select_path(iindex)
+
+
+    def tree_select_byname(self, sname, listStore = None, selObject = None):
+        """ selects a treeview object by name """
+        if listStore is None:
+            listStore = self.listAliases
+        if selObject is None:
+            selObject = self.treeSel
+            
+        iindex = self.tree_get_index(sname, listStore)
+        if iindex > -1:
+            self.tree_select(iindex, selObject)
+    
+    def tree_select_bypart(self, parttext, listStore = None, selObject = None):
+        """ selects a treeview item if it starts with parttext """
+        if listStore is None:
+            listStore = self.listAliases
+        if selObject is None:
+            selObject = self.treeSel
+            
+        iindex = self.tree_get_index_search(parttext, listStore)
+        if iindex > -1:
+            self.tree_select(iindex, selObject)
+                
+    def tree_get_index(self, sname, listStore = None):
+        """ retrieve an items index by name """
+        if listStore is None:
+            listStore = self.listAliases
+            
+        for i in range(0, len(listStore)):
+            # get row i, column 0's text
+            name = listStore[i][0]
+            # probably has pango markup, we need to trim it,
+            if sname == trim_markup(name):
+                return i
+        # not found
+        return -1
+    
+    def tree_get_index_search(self, parttext, listStore = None):
+        """ retrieves the index of the first item starting with parttext  """
+        if listStore is None:
+            listStore = self.listAliases
+            
+        for i in range(0, len(listStore)):
+            name = trim_markup(listStore[i][0])
+            if name.startswith(parttext):
+                return i
+        return -1
+    
+                       
+    def tree_selindex(self, selObject = None):
+        """ Gets selected item's index from tree. (tree object must be passed) """
+        if selObject is None:
+            selObject = self.treeSel
+            
+        # Get Selected Item
+        (modelNames, iterNames) = selObject.get_selected()
+        
+        # Item Selected?
+        if iterNames == None:
+            return -1
+        else:
+            # Get Index of Selected Item
+            itmPath = modelNames.get_path(iterNames)
+            # return Numeric index of selected item
+            return itmPath[0]
+        
+    def tree_selvalue(self, selObject = None):
+        """ Gets selected item's value from treeview """
+        if selObject is None:
+            selObject = self.treeSel
+            
+        # Get Selected Item
+        (modelNames, iterNames) = selObject.get_selected()
+        
+        # Item Selected?
+        if iterNames == None:
+            return ""
+        else:
+            # Get Value of Selected Item
+            itmValue = modelNames.get_value(iterNames, 0)
+            # return String containing selected item's value
+            return itmValue
+
+    def tree_adjustbars(self, listStore = None, selObject = None, scrollObject = None):
+        """ Adjust the scrollbars for when item is selected thru code """
+        if listStore is None:
+            listStore = self.listAliases
+        if selObject is None:
+            selObject = self.treeSel
+        if scrollObject is None:
+            scrollObject = self.scrollAliases
+            
+        # Adjust scrollbars
+        adj = scrollObject.get_vadjustment()
+        
+            
+        itotal_len = len(listStore)    
+        # No entries? something is horribly wrong.
+        if itotal_len == 0:
+            # division by zero error, because no items are loaded
+            return False
+        # Divide maximum value by total number of entries to get each entry height
+        # Empty items, or not filling the list completely causes this to mess up, so
+        # We need to account for lists that aren't filling at least one page
+        if adj.upper >  adj.get_page_size():    
+            iDiv = adj.upper / itotal_len
+        else:
+            iDiv = 24 # Icon height
+
+        iSel = self.tree_selindex()
+        # Calculate new position
+        iNewPos = ((iDiv * iSel) - (iDiv / 2))
+
+        adj.set_value(iNewPos)
+
+        
+    def alias_select_byname(self, sname):
+        """ select alias by name, and adjust scrollbars accordingly """
+        self.tree_select_byname(sname)
+        self.tree_adjustbars()
+    
+    def alias_select_bypart(self, sparttext):
+        """ select item by part of a name, adjust scrollbars accordingly """
+        self.tree_select_bypart(sparttext)
+        self.tree_adjustbars()
+                           
     def save_file(self, sfilename = None):
         if sfilename == None:
             sfilename = settings.get("aliasfile")
@@ -1148,6 +1315,10 @@ class winMain():
     def load_aliases(self, from_file=True):
         """ Load aliases into treeview using correct markup """
         
+        # item already selected? if so, save it to re-select it in a sec.
+        prev_name = self.selname
+        
+        
         # Get file contents aliases/functions, fix Export info
         if from_file:
             self.lst_data = fixexports(readfile())
@@ -1203,9 +1374,41 @@ class winMain():
             
         # Finished, show count
         self.colNames.set_title("Aliases: " + str(len(self.listAliases)))
-            
+          
+        # Re-select item if needed
+        if prev_name == "":
+            self.txtComment_clear()
+            self.txtCommand_clear()
+        else:
+            self.alias_select_byname(prev_name)
         
-                
+    def item_exists(self, sname):
+        """ Item already exists/bad name? """
+        for itm in self.lst_data:
+            if sname == itm.name:
+                self.stat_settext("Item already exists!: " + sname)
+                self.printlog("Item already exists!: " + sname)
+                dlg.msgbox("Item already exists!: " + sname, dlg.error)
+                return True
+        return False
+    
+    def item_badname(self, sname):
+        """ Make sure item has a valid name. Does not exist, no $_ITEM_$. """
+                # No text entered?
+        if sname == None:
+            return True
+        if sname.replace(' ', '') == "":
+            return True
+        
+        if sname == "$_ITEM_$":
+            self.stat_settext("Bad name for item: $_ITEM_$")
+            self.printlog("Bad name for item: $_ITEM_$")
+            dlg.msgbox("Sorry, you can't use this name. I'm using it.")
+            return True
+        # exists?
+        return self.item_exists(sname)
+             
+                                
     def get_item(self, sname):
         """ Retrieves item data in lst_data by name """
         if self.lst_data == None:
