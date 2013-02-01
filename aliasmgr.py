@@ -644,9 +644,11 @@ class winMain():
         if self.mnuIntegration.get_active():
             if settings.get("integration") != "true":
                 if integrator.is_integrated():
+                    settings.set('integration', 'true')
                     self.stat_settext("Already enabled in bashrc...")
                 else:
                     if integration_choice():
+                        settings.set('integration', 'true')
                         self.stat_settext("Integration enabled...")
         else:
             if settings.get("integration") == "true":
@@ -655,6 +657,7 @@ class winMain():
                                         "alias scripts to work.\n\n" + \
                                         "Are you sure you want to disable it?")
                 if resp == gtk.RESPONSE_YES:
+                    settings.set('integration', 'false')
                     integrator.deintegrate_self()
                     self.stat_settext("Integration disabled...")
         
