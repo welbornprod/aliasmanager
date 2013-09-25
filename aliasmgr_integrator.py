@@ -111,9 +111,10 @@ class am_integrator():
         if sfilename in self.get_integrated_files():
             return True
         else:
-            # do a bit deeper search
+            ### TODO: do a bit deeper search
             
             return False
+    
     
     def integrate_self(self):
         """ Integrate the helper script into bashrc """
@@ -203,6 +204,7 @@ class am_integrator():
                 printx("Temp file copied to bashrc: " + self.bashrc)
             return True
         return False
+    
                             
     def get_integrated_files(self):
         """ lists all files integrated into bashrc """

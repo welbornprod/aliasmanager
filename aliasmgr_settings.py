@@ -9,6 +9,7 @@ Created on Jan 16, 2013
 from __future__ import print_function
 # file related imports
 import sys, os.path
+__VERSION__ = "1.7.2"
 
 class am_settings():
     ''' helper for saving/retrieving alias manager settings
@@ -27,7 +28,7 @@ class am_settings():
         ''' creates new settings object to work with '''
         # application info
         self.name = 'Alias Manager'
-        self.version = '1.7'
+        self.version = __VERSION__
         # default config file
         self.configfile = os.path.join(sys.path[0], "aliasmgr.conf")
         # empty setting dictionary
@@ -105,10 +106,13 @@ class am_settings():
         with open(sfile, 'w') as fwrite:
             for skey in self.settings.iterkeys():
                 fwrite.write(skey + '=' + self.settings[skey] + '\n')
+            # flush right away, so other modules can read the changes.
+            fwrite.flush()
+            fwrite.close()
             # success  
             return True
         # failed to open file
-        print("alias_settings: failed to open file for write!: " + sfile)
+        print("aliasmgr_settings: failed to open file for write!: " + sfile)
         return False
 
     def configfile_exists(self, bcreateblank = True):
