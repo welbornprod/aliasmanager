@@ -10,6 +10,26 @@ Easily integrate alias/function scripts into bashrc with a mouse click.
 
 New Features:
 =============
+
+version 1.7.2:
+--------------
+
+Command-line flags format changed. Flags must have `-` before the first letter.
+    usage: `aliasmgr.py -pcf`
+
+Search for an alias/function from the command line.
+    usage: `aliasmgr.py <searchterm>`
+
+List info about a known alias/function from the command line.
+    usage: `aliasmgr.py <known_name>`
+
+Code cleaned (a little), classes, utilities, command-line, and GUI were separated
+into their own py files. Still more to clean, but its a start.
+
+
+version 1.7:
+------------
+
 Search integrated into main window, now searches correctly.
 
 Rename item added, preserves export status if auto-save is checked.
