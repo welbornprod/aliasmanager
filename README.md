@@ -15,6 +15,7 @@ version 1.7.6:
 ----------------
 
 Added the ability to convert functions/aliases to standalone scripts.
+
     usage: `aliasmgr -C <known_name> [<target_file.sh>] [-o]`
 
 
@@ -22,12 +23,15 @@ version 1.7.2:
 --------------
 
 Command-line flags format changed. Flags must have `-` before the first letter.
+
     usage: `aliasmgr.py -pcf`
 
 Search for an alias/function from the command line.
+
     usage: `aliasmgr.py <searchterm>`
 
 List info about a known alias/function from the command line.
+
     usage: `aliasmgr.py <known_name>`
 
 Code cleaned (a little), classes, utilities, command-line, and GUI were separated
