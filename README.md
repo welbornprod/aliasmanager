@@ -11,7 +11,7 @@ Easily integrate alias/function scripts into bashrc with a mouse click.
 New Features:
 =============
 
-version 1.7.5-1:
+version 1.7.6:
 ----------------
 
 Added the ability to convert functions/aliases to standalone scripts.
