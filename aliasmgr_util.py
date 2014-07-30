@@ -39,7 +39,7 @@ class Command():
     def __str__(self):
         return self.__repr__()
 
-    def to_scriptfile(self, filepath=None):
+    def to_scriptfile(self, filepath=None, overwrite=False):
         """ Convert a function/alias to its own script file. """
         if not self.name:
             raise ValueError('Cannot convert a command with no name.')
@@ -48,7 +48,7 @@ class Command():
 
         # Ensure a full path is built.
         if filepath:
-            basedir, filename = os.path.split()
+            basedir, filename = os.path.split(filepath)
             if not basedir:
                 basedir = os.getcwd()
             if not filename:
@@ -58,22 +58,29 @@ class Command():
             filename = '{}.sh'.format(self.name)
 
         # Don't clobber existing scripts.
-        uniqueid = 2
-        while os.path.exists(filename):
-            filename = '{}{}.sh'.format(self.name, uniqueid)
-            uniqueid += 1
+        if not overwrite:
+            uniqueid = 2
+            while os.path.exists(filename):
+                filename = '{}{}.sh'.format(self.name, uniqueid)
+                uniqueid += 1
 
         # Build the full path.
         filepath = os.path.join(basedir, filename)
-        desc = '# Script generated from alias/function: {}\n'.format(self.name)
-        content = '    {}'.format('\n    '.join(self.cmd))
-        wrapbraces = lambda s: '{{\n{}\n}}\n'.format(s)
+        desctype = 'a function' if self.isfunction() else 'an alias'
+        descfile = settings.get('aliasfile', 'an alias file.')
+        desclines = [
+            '# Script generated with {}:'.format(settings.versionstr),
+            '# Original code was {} in {}.'.format(desctype, descfile),
+        ]
+        desc = '{}\n'.format('\n'.join(desclines))
+        content = '\n{}\n'.format(self.to_function())
+
         if not content.endswith('\n'):
             content = '{}\n'.format(content)
         with open(filepath, 'w') as f:
             f.write('{}\n\n'.format(self.shebang))
             f.write(desc)
-            f.write('function {} {}'.format(self.name, wrapbraces(content)))
+            f.write(content)
             f.write('\n# Call the function when this script runs.\n')
             f.write('{} $@\n'.format(self.name))
 
@@ -106,6 +113,23 @@ class Command():
                 self.exported = "Yes"
             else:
                 self.exported = "No"
+
+    def to_function(self):
+        """ Return a string containing a function definition for this cmd """
+        if not (self.name and self.cmd):
+            return ''
+
+        if self.isfunction():
+            cmdlines = ['    {}'.format(l) for l in self.cmd]
+        else:
+            cmdlines = ['    {} $@'.format(self.cmd[0])]
+
+        content = ['function {} {{'.format(self.name)]
+        if self.comment:
+            content.append('    # {}\n'.format(self.comment))
+        content.extend(cmdlines)
+        content.append('}')
+        return '\n'.join(content)
 
 # Dialog/Msgbox --------------------------------------------------------
 

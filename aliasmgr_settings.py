@@ -33,6 +33,7 @@ class am_settings():
         # application info
         self.name = 'Alias Manager'
         self.version = __VERSION__
+        self.versionstr = '{} v. {}'.format(self.name, self.version)
         # default config file
         self.configfile = os.path.join(sys.path[0], "aliasmgr.conf")
         # empty setting dictionary

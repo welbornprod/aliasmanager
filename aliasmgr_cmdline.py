@@ -83,12 +83,16 @@ class CmdLine():
     def convert_toscript(self, cmdlineargs):
         """ Convert an alias/function to a script file. """
         args = cmdlineargs[:]
+        overwrite = False
         for i, arg in enumerate(args[:]):
             if arg.startswith('-'):
                 args.pop(i)
+                if arg.lower() in ('-o', '--overwrite'):
+                    overwrite = True
+
         arglen = len(args)
         if (arglen not in [1, 2]):
-            print('\nExpecting: AliasName [TargetFile]')
+            print('\nExpecting: AliasName [TargetFile] [--overwrite]')
             return 1
         if len(args) == 2:
             aliasname, targetfile = args
@@ -103,7 +107,7 @@ class CmdLine():
             return 1
 
         cmd = matches[0]
-        newfile = cmd.to_scriptfile(filepath=targetfile)
+        newfile = cmd.to_scriptfile(filepath=targetfile, overwrite=overwrite)
         if newfile:
             print('Script was generated: {}'.format(newfile))
             return 0
@@ -111,30 +115,35 @@ class CmdLine():
         return 1
 
     def printver(self):
-        print(settings.name + " version " + settings.version)
-        print("")
+        print('{}\n'.format(settings.versionstr))
 
     def printusage(self):
-        print('aliasmgr\n' +
-              '         Usage:\n' +
-              '            aliasmgr\n' +
-              '                     ...run the alias manager gui.\n' +
-              '            aliasmgr <known_alias_name>\n' +
-              '                     ...list info about an existing alias/function.\n' +
-              '            aliasmgr [file] -p | -h | -v | -e\n' +
-              '                     ...list info about all aliases/functions. Use specific alias file if given.\n')
+        usagelines = (
+            settings.versionstr,
+            '         Usage:',
+            '            aliasmgr',
+            '                     ...run the alias manager gui.',
+            '            aliasmgr <alias_name>',
+            '                     ...list info about an existing alias/function.',
+            '            aliasmgr -C <alias_name> [<target_file>] [-o]',
+            '                     ...convert an alias/function into a stand-alone script.',
+            '            aliasmgr [file] -p | -h | -v | -e',
+            '                     ...list info about all aliases/functions. Use specific alias file if given.',
+        )
+        print('{}\n'.format('\n'.join(usagelines)))
 
     def printhelp(self):
         aliasfile = settings.get("aliasfile")
         if aliasfile == "":
             aliasfile = "(Not selected yet)"
         helplines = (
-            "  Current file:    {}".format(aliasfile),
+            "  Current file:    {}\n".format(aliasfile),
             "      Commands:",
             "                  -h : Show this help message",
             "                  -v : Print version",
             "                  -e : Print exported names only",
             "                  -C : Convert a function/alias to its own script file.",
+            "                  -o : Overwrite existing files when converting to scripts.",
             "     -p[x|s|c|][f|a] : Print current aliases/functions\n",
             '    Formatting:',
             "                   x : will print entire functions.",
