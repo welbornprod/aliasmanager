@@ -3,3 +3,4 @@ aliasmgr.log
 aliasmgr_bashrc.tmp
 integrated.lst
 *.conf
+*.pyc
