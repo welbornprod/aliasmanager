@@ -10,7 +10,7 @@ from __future__ import print_function
 # file related imports
 import sys
 import os.path
-__VERSION__ = "1.7.6"
+__VERSION__ = "1.7.6-1"
 
 
 class am_settings():
@@ -43,7 +43,7 @@ class am_settings():
 
     def read_file(self, sfile=None):
         """ reads config file into settings object """
-        if sfile == None:
+        if sfile is None:
             sfile = self.configfile
         else:
             self.configfile = sfile
@@ -75,13 +75,9 @@ class am_settings():
         if len(soption.replace(' ', '')) == 0:
             print("alias_settings: empty options are not allowed!")
             return False
-        # if len(svalue.replace(' ', '')) == 0:
-        #  print("alias_Settings: empty values are not allowed!")
-        #  return False
 
         try:
             self.settings[soption] = svalue
-            #print("settings.set(): " + soption + "=" + self.settings[soption])
             return True
         except:
             return False
@@ -97,14 +93,13 @@ class am_settings():
 
     def get(self, soption, sdefault=""):
         """ retrieves a setting from config file """
-        if self.settings.has_key(soption):
+        if soption in self.settings:
             return self.settings[soption]
         else:
-            #print("alias_settings: key not found: " + soption)
             return sdefault
 
     def save(self, sfile=None):
-        if sfile == None:
+        if sfile is None:
             sfile = self.configfile
 
         with open(sfile, 'w') as fwrite:
