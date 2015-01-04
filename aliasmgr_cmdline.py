@@ -41,7 +41,7 @@ class CmdLine():
         # scan for alias file to use.
         for sarg in largs:
             if (os.path.isfile(sarg) or
-                os.path.isfile(os.path.join(sys.path[0], sarg))):
+                    os.path.isfile(os.path.join(sys.path[0], sarg))):
                 self.aliasfile = sarg
                 self.commands = amutil.readfile(aliasfile=self.aliasfile)
                 largs.remove(sarg)
@@ -100,7 +100,11 @@ class CmdLine():
             aliasname = args[0]
             targetfile = None
 
-        matches = self.searchalias(aliasname)
+        matches = self.searchalias(aliasname, names_only=True)
+        if not matches:
+            print('\nNo matches were found for: {}'.format(aliasname))
+            return 1
+
         if len(matches) > 1:
             print('\nAmbiguos name, returned many results:')
             print('    {}'.format('\n    '.join(c.name for c in matches)))
@@ -206,7 +210,7 @@ class CmdLine():
             print('\nNo aliases found matching: {}\n'.format(aliasname))
             return 1
 
-    def searchalias(self, aliasname):
+    def searchalias(self, aliasname, names_only=False):
         """ Searches and retrieves all aliases matching aliasname (regex) """
 
         try:
@@ -215,23 +219,25 @@ class CmdLine():
             print('\nInvalid alias name given!: {}\n'.format(aliasname))
             return []
 
-        matches = []
-        for cmdinfo in self.commands:
-            wholecmd = '{} {} {} {}'.format(cmdinfo.name,
-                                            cmdinfo.cmd,
-                                            cmdinfo.comment,
-                                            cmdinfo.exported)
-            matchcmd = repat.search(wholecmd)
-            if matchcmd:
-                matches.append(cmdinfo)
-
-        return matches
+        if names_only:
+            get_match = lambda cmd: repat.search(cmd.name)
+        else:
+            get_match = lambda cmd: (repat.search(
+                '{} {} {} {}'.format(
+                    cmd.name,
+                    cmd.cmd,
+                    cmd.comment,
+                    cmd.exported)))
+        return filter(get_match, self.commands)
 
     def printaliases(self, sarg):
         """ Print aliases in current file """
 
+        # Get the length of the longest command name for formatting.
+        maxcmdlength = len(max(self.commands, key=lambda c: len(c.name)).name)
         if self.commands:
-            for itm in self.commands:
+            # Print in alphabetical order.
+            for itm in sorted(self.commands, key=lambda c: c.name):
                 # Comments?
                 if len(itm.comment) > 0:
                     # Add Comment
@@ -246,34 +252,37 @@ class CmdLine():
                     sfinalname = (itm.name)
                 elif "c" in sarg:
                     # print comment version, names/comments only
-                    maxcmdlength = 20
-                    thiscmdlength = len(itm.name)
-
-                    sfinalname = (itm.name +
-                                 (" " * (maxcmdlength - thiscmdlength)) +
-                                  ": " + scomment)
+                    sfinalname = '{} : {}'.format(
+                        itm.name.ljust(maxcmdlength),
+                        scomment)
                 else:
                     # printing normal (p), or full version (px)
-                    sfinalname = (itm.name + ":")
-                    # Show comment/export/command
-                    sfinalname += ("\n    Comment: " + scomment + "\n     Export: " + sexport)
+                    sfinalname = '\n'.join((
+                        '{}:',
+                        '    Comment: {}',
+                        '     Export: {}')).format(itm.name, scomment, sexport)
                     # Function, show full cmd list?
                     if itm.isfunction():
                         # Function, show all commands?
                         if "x" in sarg:
                             # Build full command items string
-                            scmd = "    Command:\n"
-                            for itmcmd in itm.cmd:
-                                scmd += "             " + itmcmd + '\n'
+                            scmd = '\n'.join((
+                                '    Command:',
+                                '            {}\n'.format(
+                                    '\n            '.join(itm.cmd))))
                         else:
                             # Only show first line of function
-                            scmd = "    Command:\n" + \
-                                   "             " + itm.cmd[0] + " (more lines...)\n"
+                            scmd = '\n'.join((
+                                '    Command:',
+                                '            {} (more lines...)\n')).format(
+                                itm.cmd[0])
                     else:
                         # Simple 1 liner, alias
-                        scmd = "    Command:\n             " + itm.cmd[0] + '\n'
-
-                    sfinalname += '\n' + scmd
+                        scmd = '\n'.join((
+                            'Command:',
+                            '            {}\n'.format(itm.cmd[0])
+                        ))
+                    sfinalname = '\n'.join((sfinalname, scmd))
 
                 # Final output built, print all/aliases/functions
                 if "a" in sarg:
