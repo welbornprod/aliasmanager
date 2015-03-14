@@ -10,7 +10,7 @@ from __future__ import print_function
 # file related imports
 import sys
 import os.path
-__VERSION__ = "1.7.6-1"
+__VERSION__ = "1.7.6-2"
 
 
 class am_settings():
