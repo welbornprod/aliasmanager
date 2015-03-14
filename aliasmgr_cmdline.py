@@ -5,26 +5,29 @@ Created on Sep 24, 2013
 
 @author: Christopher Welborn
 '''
-import sys, os, re
+import sys
+import os
+import re
 
 import aliasmgr_util as amutil
 # settings helper
 settings = amutil.settings
 
+
 class CmdLine():
+
     """ alias manager command line tools """
 
-    def __init__(self, largs = None):
+    def __init__(self, largs=None):
         """ Loads command-line interface, must pass args (largs). """
         # aliasfile can be replaced by arg_handler().
         self.aliasfile = settings.get('aliasfile')
         # load all aliases/functions (list of amutil.Command() objects)
         self.commands = amutil.readfile()
 
-      
     def main(self, largs):
         """ runs command line style, accepts args """
-        # Arg 
+        # Arg
         if len(largs) > 0:
             ret = self.arg_handler(largs)
             return ret
@@ -32,18 +35,17 @@ class CmdLine():
             print('No arguments supplied to aliasmgr.CmdLine!')
             return 1
 
-           
     def arg_handler(self, largs):
         """ receives list of args, handles accordingly """
-        
+
         # scan for alias file to use.
         for sarg in largs:
             if (os.path.isfile(sarg) or
-                os.path.isfile(os.path.join(sys.path[0], sarg))):
+                    os.path.isfile(os.path.join(sys.path[0], sarg))):
                 self.aliasfile = sarg
-                self.commands = amutil.readfile(aliasfile = self.aliasfile)
+                self.commands = amutil.readfile(aliasfile=self.aliasfile)
                 largs.remove(sarg)
-        
+
         # notify user about which alias file is being used.
         print('\nUsing alias file: {}\n'.format(self.aliasfile))
         # get lower() list of alias names
@@ -52,73 +54,119 @@ class CmdLine():
         else:
             aliasnames = []
 
-        # scan for normal args.        
+        # scan for normal args.
         for sarg in largs:
             if sarg.lower() in aliasnames:
                 self.printalias(sarg)
-            elif sarg.startswith('-h') or sarg.startswith('--h'):
+            elif sarg.startswith(('-h', '--help')):
                 # HELP
                 self.printusage()
                 self.printhelp()
                 return 0
-            elif sarg.startswith('-v') or sarg.startswith('--v'):
+            elif sarg.startswith(('-v', '--version')):
                 # VERSION
                 self.printver()
                 return 0
-            elif sarg.startswith('-e') or sarg.startswith('--e'):
+            elif sarg.startswith(('-e', '--export')):
                 # EXPORTS
-                ret = self.printexports()
-                return ret
-            elif sarg.startswith('-p') or sarg.startswith('--p'):
-                # PRINT aliases (sarg will tell us normal/short/comment/or full style)        
-                ret = self.printaliases(sarg)
-                return ret
+                return self.printexports()
+            elif sarg.startswith(('-p', '--p')):
+                # PRINT aliases (sarg will tell us normal/short/comment/or full style)
+                return self.printaliases(sarg)
+            elif sarg.startswith(('-C', '--convert')):
+                # CONVERT command to its own script file.
+                return self.convert_toscript(largs)
             else:
                 # Search automatically ran
-                ret = self.printsearch(sarg)
-                return ret
-              
+                return self.printsearch(sarg)
+
+    def convert_toscript(self, cmdlineargs):
+        """ Convert an alias/function to a script file. """
+        args = cmdlineargs[:]
+        overwrite = False
+        for i, arg in enumerate(args[:]):
+            if arg.startswith('-'):
+                args.pop(i)
+                if arg.lower() in ('-o', '--overwrite'):
+                    overwrite = True
+
+        arglen = len(args)
+        if (arglen not in [1, 2]):
+            print('\nExpecting: AliasName [TargetFile] [--overwrite]')
+            return 1
+        if len(args) == 2:
+            aliasname, targetfile = args
+        else:
+            aliasname = args[0]
+            targetfile = None
+
+        matches = self.searchalias(aliasname, names_only=True)
+        if not matches:
+            print('\nNo matches were found for: {}'.format(aliasname))
+            return 1
+
+        if len(matches) > 1:
+            print('\nAmbiguos name, returned many results:')
+            print('    {}'.format('\n    '.join(c.name for c in matches)))
+            return 1
+
+        cmd = matches[0]
+        newfile = cmd.to_scriptfile(filepath=targetfile, overwrite=overwrite)
+        if newfile:
+            print('Script was generated: {}'.format(newfile))
+            return 0
+        print('\nUnable to generate script: {}'.format(newfile))
+        return 1
+
     def printver(self):
-        print(settings.name + " version " + settings.version)
-        print("")
-    
+        print('{}\n'.format(settings.versionstr))
+
     def printusage(self):
-        print('aliasmgr\n' + \
-              '         Usage:\n' + \
-              '            aliasmgr\n' + \
-              '                     ...run the alias manager gui.\n' + \
-              '            aliasmgr <known_alias_name>\n' + \
-              '                     ...list info about an existing alias/function.\n' + \
-              '            aliasmgr [file] -p | -h | -v | -e\n' + \
-              '                     ...list info about all aliases/functions. Use specific alias file if given.\n')
-          
-    
+        usagelines = (
+            settings.versionstr,
+            '         Usage:',
+            '            aliasmgr',
+            '                     ...run the alias manager gui.',
+            '            aliasmgr <alias_name>',
+            '                     ...list info about an existing alias/function.',
+            '            aliasmgr -C <alias_name> [<target_file>] [-o]',
+            '                     ...convert an alias/function into a stand-alone script.',
+            '            aliasmgr [file] -p | -h | -v | -e',
+            '                     ...list info about all aliases/functions. Use specific alias file if given.',
+        )
+        print('{}\n'.format('\n'.join(usagelines)))
+
     def printhelp(self):
         aliasfile = settings.get("aliasfile")
         if aliasfile == "":
             aliasfile = "(Not selected yet)"
-        print("  Current file:    " + aliasfile + '\n' + \
-              "      Commands:\n" + \
-              "                  -h : Show this help message\n" + \
-              "                  -v : Print version\n" + \
-              "                  -e : Print exported names only\n" + \
-              "     -p[x|s|c|][f|a] : Print current aliases/functions\n\n" + \
-              '    Formatting:\n' + \
-              "                   x : will print entire functions.\n" + \
-              "                   s : only shows names\n" + \
-              "                   c : shows names : comments\n\n" + \
-              "         Types: \n" + \
-              "                   a : shows aliases only\n" + \
-              "                   f : shows functions only\n\n" + \
-              "       Example:\n" + \
-              '           \'aliasmgr myshortcut\' will show any info found for alias/function called \'myshortcut\'\n' + \
-              '           \'aliasmgr -pcf\' shows names and comments for functions only\n' + \
-              '           \'aliasmgr -psa\' shows just the names for aliases (not functions).\n')
-        
+        helplines = (
+            "  Current file:    {}\n".format(aliasfile),
+            "      Commands:",
+            "                  -h : Show this help message",
+            "                  -v : Print version",
+            "                  -e : Print exported names only",
+            "                  -C : Convert a function/alias to its own script file.",
+            "                  -o : Overwrite existing files when converting to scripts.",
+            "     -p[s|c][f|a]    : Print current aliases/functions.",
+            "                -pxf : Print entire functions (with content).",
+            '    Formatting:',
+            "                   x : will print entire functions, does nothing for aliases.",
+            "                   s : only shows names",
+            "                   c : shows names : comments\n",
+            "         Types:",
+            "                   a : shows aliases only",
+            "                   f : shows functions only\n",
+            "       Example:",
+            '           \'aliasmgr myshortcut\' will show any info found for alias/function called \'myshortcut\'',
+            '           \'aliasmgr -pcf\' shows names and comments for functions only',
+            '           \'aliasmgr -psa\' shows just the names for aliases (not functions).'
+        )
+        print('{}\n'.format('\n'.join(helplines)))
 
     def printalias(self, aliasname):
         """ Print a single alias (retrieved by name or Command() object) """
-        
+
         if isinstance(aliasname, amutil.Command):
             self.printcommand(aliasname)
         else:
@@ -131,10 +179,9 @@ class CmdLine():
                 return 1
         return 0
 
-
-    def printcommand(self, cmdobj, showcommand = True):
+    def printcommand(self, cmdobj, showcommand=True):
         """ Print a Command() object, with some formatting. """
-        
+
         sexported = 'Yes' if cmdobj.exported.lower() == 'new' else cmdobj.exported
 
         sformatted = '    Name: {}\n'.format(cmdobj.name) + \
@@ -145,17 +192,16 @@ class CmdLine():
             sformatted += '\n Command:\n  {}\n'.format('\n  '.join(cmdobj.cmd))
 
         print('{}'.format(sformatted))
-    
-    
+
     def printsearch(self, aliasname):
         """ Searches aliases for aliasname (regex), and prints results """
-        
+
         matches = self.searchalias(aliasname)
-        usedivider = (len(matches) > 1)
         if matches:
+            usedivider = (len(matches) > 1)
             lastmatch = matches[-1]
             for cmdinfo in matches:
-                self.printcommand(cmdinfo, showcommand = False)
+                self.printcommand(cmdinfo, showcommand=False)
                 if usedivider and (cmdinfo != lastmatch):
                     print('-' * 40)
             print('\nFound {} matches for: {}\n'.format(str(len(matches)), aliasname))
@@ -163,35 +209,35 @@ class CmdLine():
         else:
             print('\nNo aliases found matching: {}\n'.format(aliasname))
             return 1
-        
-    
-    def searchalias(self, aliasname):
+
+    def searchalias(self, aliasname, names_only=False):
         """ Searches and retrieves all aliases matching aliasname (regex) """
-        
+
         try:
-            repat = re.compile(aliasname, flags = re.IGNORECASE)
+            repat = re.compile(aliasname, flags=re.IGNORECASE)
         except:
             print('\nInvalid alias name given!: {}\n'.format(aliasname))
-            return 1
-        
-        matches = []
-        for cmdinfo in self.commands:
-            wholecmd = '{} {} {} {}'.format(cmdinfo.name, 
-                                            cmdinfo.cmd, 
-                                            cmdinfo.comment, 
-                                            cmdinfo.exported)
-            matchcmd = repat.search(wholecmd)
-            if matchcmd:
-                matches.append(cmdinfo)
+            return []
 
-        return matches
-    
-    
+        if names_only:
+            get_match = lambda cmd: repat.search(cmd.name)
+        else:
+            get_match = lambda cmd: (repat.search(
+                '{} {} {} {}'.format(
+                    cmd.name,
+                    cmd.cmd,
+                    cmd.comment,
+                    cmd.exported)))
+        return filter(get_match, self.commands)
+
     def printaliases(self, sarg):
         """ Print aliases in current file """
-        
+
+        # Get the length of the longest command name for formatting.
+        maxcmdlength = len(max(self.commands, key=lambda c: len(c.name)).name)
         if self.commands:
-            for itm in self.commands:
+            # Print in alphabetical order.
+            for itm in sorted(self.commands, key=lambda c: c.name):
                 # Comments?
                 if len(itm.comment) > 0:
                     # Add Comment
@@ -206,35 +252,38 @@ class CmdLine():
                     sfinalname = (itm.name)
                 elif "c" in sarg:
                     # print comment version, names/comments only
-                    maxcmdlength = 20
-                    thiscmdlength = len(itm.name)
-    
-                    sfinalname = (itm.name + \
-                                 (" " * (maxcmdlength - thiscmdlength)) + \
-                                 ": " + scomment)
+                    sfinalname = '{} : {}'.format(
+                        itm.name.ljust(maxcmdlength),
+                        scomment)
                 else:
                     # printing normal (p), or full version (px)
-                    sfinalname = (itm.name + ":")
-                    # Show comment/export/command
-                    sfinalname += ("\n    Comment: " + scomment + "\n     Export: " + sexport)
+                    sfinalname = '\n'.join((
+                        '{}:',
+                        '    Comment: {}',
+                        '     Export: {}')).format(itm.name, scomment, sexport)
                     # Function, show full cmd list?
                     if itm.isfunction():
                         # Function, show all commands?
                         if "x" in sarg:
                             # Build full command items string
-                            scmd = "    Command:\n"
-                            for itmcmd in itm.cmd:
-                                scmd += "             " + itmcmd + '\n'
+                            scmd = '\n'.join((
+                                '    Command:',
+                                '            {}\n'.format(
+                                    '\n            '.join(itm.cmd))))
                         else:
                             # Only show first line of function
-                            scmd = "    Command:\n" + \
-                                   "             " + itm.cmd[0] + " (more lines...)\n"
+                            scmd = '\n'.join((
+                                '    Command:',
+                                '            {} (more lines...)\n')).format(
+                                itm.cmd[0])
                     else:
                         # Simple 1 liner, alias
-                        scmd = "    Command:\n             " + itm.cmd[0] + '\n'
-                    
-                    sfinalname += '\n' + scmd
-                
+                        scmd = '\n'.join((
+                            'Command:',
+                            '            {}\n'.format(itm.cmd[0])
+                        ))
+                    sfinalname = '\n'.join((sfinalname, scmd))
+
                 # Final output built, print all/aliases/functions
                 if "a" in sarg:
                     # Aliases only (also empty commands)
@@ -252,8 +301,7 @@ class CmdLine():
             print('\nNo items found in alias file: {}'.format(self.aliasfile))
             return 1
         return 0
-    
-    
+
     def printexports(self):
         """ Prints exports only """
         exports = [f.name for f in self.commands if f.exported.lower() == 'yes']
