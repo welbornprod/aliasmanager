@@ -71,7 +71,8 @@ class CmdLine():
                 # EXPORTS
                 return self.printexports()
             elif sarg.startswith(('-p', '--p')):
-                # PRINT aliases (sarg will tell us normal/short/comment/or full style)
+                # PRINT aliases (sarg will tell us normal/short/comment/full
+                # style)
                 return self.printaliases(sarg)
             elif sarg.startswith(('-C', '--convert')):
                 # CONVERT command to its own script file.
@@ -122,47 +123,50 @@ class CmdLine():
         print('{}\n'.format(settings.versionstr))
 
     def printusage(self):
-        usagelines = (
-            settings.versionstr,
-            '         Usage:',
-            '            aliasmgr',
-            '                     ...run the alias manager gui.',
-            '            aliasmgr <alias_name>',
-            '                     ...list info about an existing alias/function.',
-            '            aliasmgr -C <alias_name> [<target_file>] [-o]',
-            '                     ...convert an alias/function into a stand-alone script.',
-            '            aliasmgr [file] -p | -h | -v | -e',
-            '                     ...list info about all aliases/functions. Use specific alias file if given.',
-        )
-        print('{}\n'.format('\n'.join(usagelines)))
+        print("""{ver}
+         Usage:
+             aliasmgr
+                 ...run the alias manager gui.
+             aliasmgr <alias_name>
+                 ...list info about an existing alias/function.
+             aliasmgr -C <alias_name> [<target_file>] [-o]
+                 ...convert an alias/function into a stand-along script.
+             aliasmgr [file] -p | -h | -v | -e
+                 ...list info about all aliases/functions.
+                    Use a specific alias file if given.
+        """.format(ver=settings.versionstr))
 
     def printhelp(self):
         aliasfile = settings.get("aliasfile")
         if aliasfile == "":
             aliasfile = "(Not selected yet)"
-        helplines = (
-            "  Current file:    {}\n".format(aliasfile),
-            "      Commands:",
-            "                  -h : Show this help message",
-            "                  -v : Print version",
-            "                  -e : Print exported names only",
-            "                  -C : Convert a function/alias to its own script file.",
-            "                  -o : Overwrite existing files when converting to scripts.",
-            "     -p[s|c][f|a]    : Print current aliases/functions.",
-            "                -pxf : Print entire functions (with content).",
-            '    Formatting:',
-            "                   x : will print entire functions, does nothing for aliases.",
-            "                   s : only shows names",
-            "                   c : shows names : comments\n",
-            "         Types:",
-            "                   a : shows aliases only",
-            "                   f : shows functions only\n",
-            "       Example:",
-            '           \'aliasmgr myshortcut\' will show any info found for alias/function called \'myshortcut\'',
-            '           \'aliasmgr -pcf\' shows names and comments for functions only',
-            '           \'aliasmgr -psa\' shows just the names for aliases (not functions).'
-        )
-        print('{}\n'.format('\n'.join(helplines)))
+        print("""
+  Current file:    {aliasfile}
+
+      Commands:
+                  -h : Show this help message
+                  -v : Print version
+                  -e : Print exported names only
+                  -C : Convert a function/alias to its own script file.
+                  -o : Overwrite existing files when converting to scripts.
+     -p[s|c][f|a]    : Print current aliases/functions.
+                -pxf : Print entire functions (with content).
+
+    Formatting:
+                   x : will print entire functions, does nothing for aliases.
+                   s : only shows names
+                   c : shows names : comments
+
+         Types:
+                   a : shows aliases only
+                   f : shows functions only
+
+       Example:
+           'aliasmgr myshortcut' will show any info found for an
+           alias/function called 'myshortcut'.
+           'aliasmgr -pcf' shows names and comments for functions only
+           'aliasmgr -psa' shows just the names for aliases (not functions)
+        """.format(aliasfile=aliasfile))
 
     def printalias(self, aliasname):
         """ Print a single alias (retrieved by name or Command() object) """
@@ -181,17 +185,20 @@ class CmdLine():
 
     def printcommand(self, cmdobj, showcommand=True):
         """ Print a Command() object, with some formatting. """
-
-        sexported = 'Yes' if cmdobj.exported.lower() == 'new' else cmdobj.exported
-
-        sformatted = '    Name: {}\n'.format(cmdobj.name) + \
-                     ' Comment: {}\n'.format(cmdobj.comment) + \
-                     'Exported: {}'.format(sexported)
+        cmdexported = cmdobj.exported.lower()
+        exported = 'Yes' if cmdexported in ('new',) else cmdobj.exported
+        fmtlines = [
+            '    Name: {cmdobj.name}',
+            ' Comment: {cmdobj.comment}',
+            'Exported: {exported}'
+        ]
         # include command?
         if showcommand:
-            sformatted += '\n Command:\n  {}\n'.format('\n  '.join(cmdobj.cmd))
+            fmtlines.append(
+                ' Command:\n {}\n'.format('\n  '.join(cmdobj.cmd))
+            )
 
-        print('{}'.format(sformatted))
+        print('\n'.join(fmtlines).format(cmdobj=cmdobj, exported=exported))
 
     def printsearch(self, aliasname):
         """ Searches aliases for aliasname (regex), and prints results """
@@ -204,7 +211,8 @@ class CmdLine():
                 self.printcommand(cmdinfo, showcommand=False)
                 if usedivider and (cmdinfo != lastmatch):
                     print('-' * 40)
-            print('\nFound {} matches for: {}\n'.format(str(len(matches)), aliasname))
+            print('\nFound {} matches for: {}\n'.format(
+                str(len(matches)), aliasname))
             return 0
         else:
             print('\nNo aliases found matching: {}\n'.format(aliasname))
@@ -215,19 +223,25 @@ class CmdLine():
 
         try:
             repat = re.compile(aliasname, flags=re.IGNORECASE)
-        except:
+        except re.error:
             print('\nInvalid alias name given!: {}\n'.format(aliasname))
             return []
 
         if names_only:
-            get_match = lambda cmd: repat.search(cmd.name)
+            def get_match(cmd):
+                """ Match on name only. """
+                return repat.search(cmd.name)
         else:
-            get_match = lambda cmd: (repat.search(
-                '{} {} {} {}'.format(
-                    cmd.name,
-                    cmd.cmd,
-                    cmd.comment,
-                    cmd.exported)))
+            def get_match(cmd):
+                """ Match on all content. """
+                return repat.search(
+                    '{} {} {} {}'.format(
+                        cmd.name,
+                        cmd.cmd,
+                        cmd.comment,
+                        cmd.exported
+                    )
+                )
         return filter(get_match, self.commands)
 
     def printaliases(self, sarg):
@@ -279,7 +293,7 @@ class CmdLine():
                     else:
                         # Simple 1 liner, alias
                         scmd = '\n'.join((
-                            'Command:',
+                            '    Command:',
                             '            {}\n'.format(itm.cmd[0])
                         ))
                     sfinalname = '\n'.join((sfinalname, scmd))
@@ -304,7 +318,9 @@ class CmdLine():
 
     def printexports(self):
         """ Prints exports only """
-        exports = [f.name for f in self.commands if f.exported.lower() == 'yes']
+        exports = [
+            f.name for f in self.commands if f.exported.lower() == 'yes'
+        ]
         if exports:
             print('\n'.join(exports))
             return 0

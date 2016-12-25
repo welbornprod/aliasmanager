@@ -10,7 +10,7 @@ from __future__ import print_function
 # file related imports
 import sys
 import os.path
-__VERSION__ = "1.7.6-2"
+__VERSION__ = '1.7.9'
 
 
 class am_settings():
@@ -35,7 +35,7 @@ class am_settings():
         self.version = __VERSION__
         self.versionstr = '{} v. {}'.format(self.name, self.version)
         # default config file
-        self.configfile = os.path.join(sys.path[0], "aliasmgr.conf")
+        self.configfile = os.path.join(sys.path[0], 'aliasmgr.conf')
         # empty setting dictionary
         self.settings = {}
         # load setting from config file
@@ -55,9 +55,10 @@ class am_settings():
                 # cycle thru lines
                 for sline in slines:
                     # actual setting?
-                    if "=" in sline:
-                        sopt = sline[:sline.index("=")]
-                        sval = sline[sline.index("=") + 1:].replace('\n', '')
+                    if '=' in sline:
+                        splitindex = sline.index('=')
+                        sopt = sline[:splitindex]
+                        sval = sline[splitindex + 1:].replace('\n', '')
 
                         self.set(sopt, sval)
                 # success
@@ -68,18 +69,19 @@ class am_settings():
     def set(self, soption, svalue):
         """ sets a setting in config file """
 
-        if ("=" in soption) or ("=" in svalue):
-            print("alias_settings: illegal char '=' in option/value!")
+        if ('=' in soption) or ('=' in svalue):
+            print('alias_settings: illegal char \'=\' in option/value!')
             return False
 
         if len(soption.replace(' ', '')) == 0:
-            print("alias_settings: empty options are not allowed!")
+            print('alias_settings: empty options are not allowed!')
             return False
 
         try:
             self.settings[soption] = svalue
             return True
-        except:
+        except Exception:
+            # Bad type?
             return False
 
     def setsave(self, soption, svalue):
@@ -87,8 +89,8 @@ class am_settings():
         if self.set(soption, svalue):
             self.save()
         else:
-            print("aliasmgr_settings: unable to set option: " +
-                  soption + "=" + svalue)
+            print('aliasmgr_settings: unable to set option: {} = {}'.format(
+                soption, svalue))
             return False
 
     def get(self, soption, sdefault=""):
@@ -102,16 +104,17 @@ class am_settings():
         if sfile is None:
             sfile = self.configfile
 
-        with open(sfile, 'w') as fwrite:
+        with open(sfile, 'w') as f:
             for skey in self.settings.iterkeys():
-                fwrite.write(skey + '=' + self.settings[skey] + '\n')
+                f.write('{}={}\n'.format(skey, self.settings[skey]))
             # flush right away, so other modules can read the changes.
-            fwrite.flush()
-            fwrite.close()
+            f.flush()
+            f.close()
             # success
             return True
         # failed to open file
-        print("aliasmgr_settings: failed to open file for write!: " + sfile)
+        print('aliasmgr_settings: failed to open file for write!: '.format(
+            sfile))
         return False
 
     def configfile_exists(self, bcreateblank=True):
@@ -120,7 +123,7 @@ class am_settings():
         else:
             if bcreateblank:
                 fconfig = open(self.configfile, 'w')
-                fconfig.write("# configuration for Alias Manager\n")
+                fconfig.write('# configuration for Alias Manager\n')
                 fconfig.close()
                 del fconfig
                 return True

@@ -8,6 +8,7 @@ Created on Sep 24, 2013
 import re
 import gtk
 import os
+import sys
 import aliasmgr_integrator
 import aliasmgr_settings
 # For changing file mode when scripts are generated.
@@ -101,9 +102,10 @@ class Command():
 
     def setexport(self, bexported, bnew=False):
         """ Sets the appropriate string value for cmd.exported using booleans,
-            Note: String values were used at first for automatic pretty printing
-                  in command line output, but later used to determine if an alias
-                  was new or not, therefore 'automagically' exporting new functions.
+            Note: String values were used at first for automatic pretty
+                  printing in command line output, but later used to determine
+                  if an alias was new or not, therefore 'automagically'
+                  exporting new functions.
             **Aliases are never exported no matter what the export value is**
         """
         if bnew:
@@ -197,7 +199,10 @@ class Dialogs():
             dfilter.add_pattern(filter_itm[1])
             self.dlgwindow.add_filter(dfilter)
 
-    def dialog(self, stitle="Select file...", gtkaction=gtk.FILE_CHOOSER_ACTION_OPEN):
+    def dialog(self, stitle=None, gtkaction=None):  # noqa
+        stitle = stitle or 'Select file...'
+        if gtkaction is None:
+            gtkaction = gtk.FILE_CHOOSER_ACTION_OPEN
         # Create File Dialog (GTK)
         if (gtkaction is None) or (gtkaction == self.open):
             gtkbtn = gtk.STOCK_OPEN
@@ -216,11 +221,11 @@ class Dialogs():
         if not stitle.lower().startswith(settings.name.lower()):
             stitle = '{}: {}'.format(settings.name, stitle)
         # Create Dialog.
-        self.dlgwindow = gtk.FileChooserDialog(stitle,
-                                               None,
-                                               gtkaction,
-                                              (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                               gtkbtn, gtk.RESPONSE_OK))
+        self.dlgwindow = gtk.FileChooserDialog(
+            stitle,
+            None,
+            gtkaction,
+            (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtkbtn, gtk.RESPONSE_OK))
         self.dlgwindow.set_default_response(gtk.RESPONSE_OK)
 
         # build filters
@@ -232,7 +237,7 @@ class Dialogs():
         try:
             if self.lastpath is not None:
                 self.dlgwindow.set_current_folder(self.lastpath)
-        except:
+        except Exception:
             pass
         # Show Dialog, get response
         response = self.dlgwindow.run()
@@ -250,12 +255,13 @@ class Dialogs():
             return ""
 
     # MessageBox ---------------------------------------
-    def msgbox(self, smessage, gtktype=gtk.MESSAGE_INFO, gtkbuttons=gtk.BUTTONS_OK):
+    def msgbox(self, smessage, gtktype=None, gtkbuttons=None):
+        if gtkbuttons is None:
+            gtkbuttons = gtk.BUTTONS_OK
+        if gtktype is None:
+            gtktype = gtk.MESSAGE_INFO
         # get type
-        if ((gtktype is None) or
-            (gtktype == self.info) or
-            (gtktype == self.warning) or
-            (gtktype == self.error)):
+        if gtktype in {self.info, self.warning, self.error}:
             if gtkbuttons != gtk.BUTTONS_OK:
                 btns = gtkbuttons
             else:
@@ -320,7 +326,7 @@ def getfilecontents(aliasfile=None):
         aliasfile = settings.get("aliasfile")
 
     if not os.path.isfile(aliasfile):
-        #print("Alias file not found!: " + aliasfile)
+        # print("Alias file not found!: " + aliasfile)
         dlg = Dialogs()
         dlg.msgbox('Alias file not found!:\n{}'.format(aliasfile), dlg.error)
         return None
@@ -363,7 +369,8 @@ def parsealiasline_old(sline):
         aliasparts = sbuf.split('=')
         sname = aliasparts[0].strip(" ")
         scommand = aliasparts[1].strip(" ").strip('"').strip("'")
-        # Add command to list (Name, Command, Comment, Exported [not needed for alias])
+        # Add command to list (Name, Command, Comment, Exported)
+        # [Exported not needed for alias])
         return Command(name=sname,
                        cmd=[scommand],
                        comment=scomment)
@@ -389,21 +396,23 @@ def parse_aliases(filecontents):
             # use normal regex.
             cmdmatch = cmd_nocomment_pat.search(rawcmd)
         if cmdmatch:
-            command = cmdmatch.groupdict()['command']
-            if cmdmatch.groupdict().has_key('comment'):
-                comment = cmdmatch.groupdict()['comment']
-            else:
-                comment = ''
+            groups = cmdmatch.groupdict()
+            command = groups['command']
+            comment = groups.get('comment', '')
+
         # Add alias to list as a Command() object...
-        lst_commands.append(Command(name=stripchars(name, ' \t\n'),
-                                    cmd=[stripquotes(stripchars(command, ' \t\n'))],
-                                    comment=stripchars(comment, '# \t\n'),
-                                    exported='[n/a]'))
+        lst_commands.append(
+            Command(
+                name=stripchars(name, ' \t\n'),
+                cmd=[stripquotes(stripchars(command, ' \t\n'))],
+                comment=stripchars(comment, '# \t\n'),
+                exported='[n/a]'))
     return lst_commands
 
 
 def parse_exports(filecontents):
-    """ parse all exports from file contents, return a list of exported names. """
+    """ parse all exports from file contents, return a list of exported names.
+    """
 
     exportpat = re.compile(r'export[ ]+?(?P<export>.+)', flags=re.MULTILINE)
     exports = exportpat.findall(filecontents)
@@ -412,7 +421,7 @@ def parse_exports(filecontents):
     return exports
 
 
-def parse_functions(filecontents):
+def parse_functions(filecontents):  # noqa
     """ parse all functions from the alias file. """
 
     # Get all exports from the file
@@ -474,7 +483,8 @@ def parse_functions(filecontents):
             # Found end of function (could be a single line though)
             # Parse contents, decide which to keep
             if ((sline.strip().replace('\n', '').endswith(" }")) or
-                (sline.replace('\n', '').replace('\t', '').replace(' ', '') == "}")):
+                    (sline.replace('\n', '')
+                        .replace('\t', '').replace(' ', '') == "}")):
                 # End of function
                 bfunction = False
                 # Reset comment finder
@@ -484,10 +494,12 @@ def parse_functions(filecontents):
                 lst_keep = []
                 for itm in lst_contents:
                     # Save trimmed version of line
-                    strim = itm.replace('\t', '').replace(' ', '').replace('\n', '')
+                    strim = itm.replace('\t', '').replace(
+                        ' ', '').replace('\n', '')
                     snotabs = itm.replace('\t', '').replace('\n', '')
                     # Figure out which contents to keep. No Braces.
-                    if (strim != "{") and (strim != "}"):  # and (not strim.startswith("#")):
+                    # and (not strim.startswith("#")):
+                    if (strim != "{") and (strim != "}"):
                         # Trim single line definition
                         if "()" in itm:
                             itm = itm[itm.index("()") + 2:]
@@ -506,21 +518,24 @@ def parse_functions(filecontents):
                             itm = snotabs
                         # Trim initial tabdepth from itm
                         if itm.startswith('\t'):
-                            #self.printlog("TRIMMING TABDEPTH: " + str(tabdepth))
+
                             itm = itm[tabdepth:]
                             # Trim one more tab depth
                             if itm.startswith('\t'):
                                 itm = itm[1:]
 
                         # Append Function Contents, don't add initial coment
-                        if ((scomment != "") and
-                            (not ((itm.startswith("#")) and (scomment in itm)))):
+                        is_initcomment = (
+                            itm.startswith("#") and (scomment in itm)
+                        )
+
+                        if (scomment and not is_initcomment):
                             lst_keep.append(itm)
                         elif scomment == "":
                             lst_keep.append(itm)
-                        #self.printlog("...." + itm)
 
-                # Append function name/contents/comment /exported [set with fixexports()]
+                # Append function name/contents/comment /exported [set with
+                # fixexports()]
                 sexported = 'Yes' if (sname in exports) else 'No'
                 commands.append(Command(name=sname,
                                         cmd=lst_keep,
@@ -567,42 +582,12 @@ def readfile(aliasfile=None):
                          'parsed functions: {}'.format(str(len(functions))))
         warnmsg.append(msg)
     if warnmsg:
-        print('\nreadfile: missing aliases/functions: \n{}'.format('\n'.join(warnmsg)))
+        print(
+            '\nreadfile: missing aliases/functions: \n{}'.format(
+                '\n'.join(warnmsg)))
         Dialogs().msgbox_warn('\n'.join(warnmsg))
 
     return commands
-
-
-def fixexports_old(lst_data):
-    """ Deprecated - readfile()->parse_functions() does this already (except better)
-        Fixes export data in main list,
-        "Yes", "No", or "Not Needed" is added to item info
-    """
-    lst_exports = readexports()
-
-    # file failed to load completely
-    if (not lst_exports) or (not lst_data):
-        print('\nfixexports: Failed to load exports list.')
-        return False
-
-    if lst_exports and lst_data:
-        # Check main list for this export
-        for idata in range(0, len(lst_data)):
-            sdata = lst_data[idata].name
-            #self.printlog("CHECKING EXPORT:'" + sdata + "'")
-            if sdata in lst_exports:
-                lst_data[idata].exported = "Yes"
-            else:
-                # Function? check command length..
-                if len(lst_data[idata].cmd) > 1:
-                    lst_data[idata].exported = "No"
-                else:
-                    # Don't break markup for new items (load_aliases needs this 'new')
-                    lst_data[idata].exported = "[N/A]"
-    # Loaded empty exports list
-    # if len(lst_data) == 0:
-        #print("fixexports: empty exports list.")
-    return lst_data
 
 
 def readexports():
@@ -623,8 +608,6 @@ def readexports():
         # Finished with file, return list of exports
         return lst_temp
 
-    # Failed to open file
-    #print("Failed to open alias file: " + aliasfile)
     return False
 
 
@@ -674,7 +657,8 @@ def trim_markup(sstring):
     if ("<" in sfinal) and (">" in sfinal):
         lst_tags = ["i", "b", "u"]
         for stag in lst_tags:
-            sfinal = sfinal.replace("<" + stag + ">", "").replace("</" + stag + ">", "")
+            sfinal = sfinal.replace(
+                "<" + stag + ">", "").replace("</" + stag + ">", "")
 
         return sfinal
     else:
@@ -687,20 +671,26 @@ def pick_aliasfile(saliasfile="", bexit_on_refusal=True):
     sfile = saliasfile
     dlg = Dialogs()
     while (not os.path.isfile(sfile)):
-        dlg.msgbox("No alias file found, click ok to select one to use.", dlg.info)
+        dlg.msgbox(
+            "No alias file found, click ok to select one to use.", dlg.info)
         sfile = dlg.dialog("Select an alias file to use:")
 
         # good aliasfile?
         if os.path.isfile(sfile):
             settings.setsave("aliasfile", sfile)
         else:
-            #print("pick_aliasfile: Alias file not found!: " + sfile)
-            response = dlg.msgbox_yesno("Alias file not found,\n Would you like to create a blank alias file?", )
+            # print("pick_aliasfile: Alias file not found!: " + sfile)
+            response = dlg.msgbox_yesno('\n'.join((
+                'Alias file not found,'
+                ' Would you like to create a blank alias file?')))
             if response == gtk.RESPONSE_NO:
-                #print("No alias file, quitting...")
+                # print("No alias file, quitting...")
                 if bexit_on_refusal:
-                    dlg.msgbox(settings.name + " cannot run with an alias file, goodbye,", dlg.info)
-                    exit(1)
+                    dlg.msgbox(
+                        '{} cannot run with an alias file, goodbye,'.format(
+                            settings.name),
+                        dlg.info)
+                    sys.exit(1)
                 else:
                     return ""
             else:
@@ -714,7 +704,7 @@ def pick_aliasfile(saliasfile="", bexit_on_refusal=True):
 def create_blank_file(sfilename, bshow_exists_warning=False):
     """ Creates a blank alias file """
     if (bshow_exists_warning and
-        os.path.isfile(sfilename)):
+            os.path.isfile(sfilename)):
         dlg = Dialogs()
         resp = dlg.msgbox_yesno("File exists:\n" + sfilename + '\n\n' +
                                 "Would you like to overwrite it?")
@@ -737,20 +727,23 @@ def create_blank_file(sfilename, bshow_exists_warning=False):
 
 
 def integration_choice():
-    """ Ask the user if they want to automatically integrate Alias Manager with bashrc """
+    """ Ask the user if they want to automatically integrate
+        Alias Manager with bashrc
+    """
     dlg = Dialogs()
-    resp = dlg.msgbox_yesno(settings.name + " will add a line to bashrc that will " +
-                            "allow you to easily integrate alias scripts into bashrc.\n" +
-                            "If your bashrc requires root permissions to edit, you will " +
-                            "have to enter root's password.\n\n" +
-                            "Would you like to add this line to bashrc?")
+    resp = dlg.msgbox_yesno(' '.join((
+        '{} will add a line to bashrc that will ',
+        'allow you to easily integrate alias scripts into bashrc.\n',
+        'If your bashrc requires root permissions to edit, you will ',
+        'have to enter root\'s password.\n\n',
+        'Would you like to add this line to bashrc?')).format(settings.name))
     if resp == gtk.RESPONSE_YES:
         integrator.integrate_self()
-        settings.setsave("integration", "true")
-        print("Integrated " + settings.name + " into bashrc...")
+        settings.setsave('integration', 'true')
+        print('Integrated {} into bashrc...'.format(settings.name))
         return True
     else:
-        settings.setsave("integration", "false")
+        settings.setsave('integration', 'false')
         return False
 
 
@@ -760,7 +753,7 @@ def chmod_file(sfilename):
     """
     # chmod to destination file
     stat_exec = os.access(sfilename, os.X_OK)
-    #print("chmod_file executable: " + str(stat_res))
+    # print("chmod_file executable: " + str(stat_res))
     if stat_exec:
         return "chmod_file: already executable."
     else:
@@ -768,10 +761,11 @@ def chmod_file(sfilename):
         # needs root, user not root
         if st_owner == 0 and os.getuid() != 0:
             dlg = Dialogs()
-            do_chmod = dlg.msgbox_yesno("For this script to work it needs " +
-                                        "to be executable, and you will need " +
-                                        "to enter root's password.\n" +
-                                        "Would you like to make this script executable?")
+            do_chmod = dlg.msgbox_yesno(
+                "For this script to work it needs "
+                "to be executable, and you will need "
+                "to enter root's password.\n"
+                "Would you like to make this script executable?")
             if do_chmod == gtk.RESPONSE_YES:
                 # use elevation command to chmod
                 selevcmd = ''
@@ -785,10 +779,10 @@ def chmod_file(sfilename):
                 try:
                     os.system(selevcmd + ' chmod a+x ' + sfilename)
                     return (selevcmd + ' chmod +x ' + sfilename)
-                except:
-                    return ("Unable to use elevcmd to chmod!")
+                except Exception:
+                    return "Unable to use elevcmd to chmod!"
             else:
-                return ("chmod declined.")
+                return "chmod declined."
         else:
             # doesn't need root, user is or isnt root.
             os.system('chmod a+x ' + sfilename)
@@ -799,7 +793,7 @@ def stripchars(original, chars):
     """ remove chars from beginning and end of string """
     if hasattr(chars, 'lower'):
         chars = [c for c in chars]
-    #print("STRIPPING: '{}'".format(original))
+
     if original:
         while original and (original[0] in chars):
             original = original[1:]
@@ -814,7 +808,7 @@ def stripquotes(original):
     """ Trims a single quote from the string """
 
     if ((original.startswith("'") and original.endswith("'")) or
-        (original.startswith('"') and original.endswith('"'))):
+            (original.startswith('"') and original.endswith('"'))):
         return original[1:-1]
     return original
 
